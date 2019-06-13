@@ -2,21 +2,22 @@
 % Please edit documentation in R/inference.R
 \name{estimateBLL}
 \alias{estimateBLL}
-\alias{estimateBLL2}
-\title{Estimate B minimizing penalized logLik}
+\alias{estimateCLL}
+\title{Estimate Ornstein-Uhlenbeck process}
 \usage{
 estimateBLL(Sigma, B, C = diag(ncol(Sigma)), eps = 0.01, alpha = 0.1,
   maxIter = 1000, trace = 0, lambda = 0, r = FALSE)
 
-estimateBLL2(Sigma, B, C = diag(ncol(Sigma)), eps = 0.01,
-  alpha = 0.1, maxIter = 1000, trace = 0, lambda = 0, r = FALSE)
+estimateCLL(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
+  eps = 0.01, alpha = 0.1, maxIter = 1000, trace = 0, lambda = 0,
+  r = FALSE)
 }
 \arguments{
 \item{Sigma}{the empirical covariance matrix}
 
-\item{B}{an initial guess for matrix B}
+\item{B}{an initial guess for the coefficient matrix B}
 
-\item{C}{the value of the noise matrix C}
+\item{C}{the initial guess for the noise matrix C}
 
 \item{eps}{stopping criteria}
 
@@ -26,13 +27,17 @@ estimateBLL2(Sigma, B, C = diag(ncol(Sigma)), eps = 0.01,
 
 \item{trace}{if >0 print info}
 
-\item{lambda}{sparsity}
+\item{lambda}{penalization coefficient}
 
 \item{r}{logical}
+
+\item{C0}{penalization matrix}
 }
 \value{
-the estimated B matrix
+the estimated B matrix (\code{estimateBLL}) or
+the estiamted C matrix (\code{estiamteCLL}).
 }
 \description{
-Estimate B minimizing penalized logLik
+Estimate the coefficients and the noise term of an Ornstein-Uhlenbeck
+process (\eqn{dX(t) = BX(t) + \sqrt{C} dW(t)}) using penalized maximum-likelihood.
 }

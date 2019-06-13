@@ -17,5 +17,7 @@ lowertriangB(Sigma, P = solve(Sigma), C = diag(nrow = nrow(Sigma)))
 A stable lower triangular matrix
 }
 \description{
-Recover the only lower triangular stable matrix B such that
+Recover the only lower triangular stable matrix B such that the
+associate OU process admit invariant distribution with covariance equal
+to the given matrix.
 }

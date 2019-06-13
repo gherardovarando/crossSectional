@@ -1,181 +1,34 @@
-#' Estimate B minimizing Frobenius norm
+#' Estimate Ornstein-Uhlenbeck process
+#'
+#' Estimate the coefficients and the noise term of an Ornstein-Uhlenbeck
+#' process (\eqn{dX(t) = BX(t) + \sqrt{C} dW(t)}) using penalized maximum-likelihood.
 #'
 #' @param Sigma the empirical covariance matrix
-#' @param B an initial guess for matrix B
-#' @param C the value of the noise matrix C
-#' @param eps stopping criteria
-#' @param alpha step length
-#' @param maxIter
-#' @param trace
-#' @param lambda
-#'
-#' @return the estimated B matrix
-#' @importFrom lyapunov clyap
-#' @export
-estimateBS <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
-                      alpha = 0.1, maxIter = 1000, trace = 0,
-                      lambda = 0.1, r = TRUE){
-  p <- ncol(Sigma)
-  a <- Inf
-  n <- 0
-  Ds <- list()
-  D <- matrix(nrow = p, ncol = p, 0)
-  ix <- (1: p^2 )[B != 0]
-  E <- matrix(nrow = p, ncol = p, 0)
-  while (a > eps && n < maxIter){
-    if (r) ix <- (1: p^2 )[B != 0]
-    n <- n + 1
-    allres <- clyap(A = B, Q = C, all = TRUE)
-    S <- matrix(nrow = p, data = allres[[6]])
-    AA <- matrix(nrow = p, data = allres[[4]])
-    EE <- matrix(nrow = p, data = allres[[5]])
-    WKV <- allres[[7]]
-    Delta <- Sigma - S
-
-    # for (i in 1:length(ix)){
-    #   E[ix[i]] <- 1
-    #   Cp <- E %*% S + S %*% t(E)
-    #   Ds[[i]] <- clyap2(A = AA, Q = Cp, E = EE, WKV = WKV)
-    #   E[ix[i]] <- 0
-    # }
-
-    u <- vapply(1:length(ix), function(i){
-        E[ix[i]] <- 1
-        Cp <- E %*% S + S %*% t(E)
-        D <- clyap2(A = AA, Q = Cp, E = EE, WKV = WKV)
-        E[ix[i]] <- 0
-        sum(D * Delta )
-      }, FUN.VALUE = 1)
-
-    #U <- (W - 0.5 * (B %*% Delta + Delta %*% t(B)) ) %*% solve(S)
-
-
-    Bold <- B[ix]
-
-    B[ix] <- B[ix] + alpha * u
-
-    B[ix] <- sign(B[ix]) * (abs(B[ix]) - alpha * lambda)
-    B[abs(B) < (alpha * lambda)] <- 0
-
-    a <- sqrt(sum( (B[ix] - Bold)^2 ) / alpha)
-
-    if (trace > 1){
-      message("Iteration: ", n, " ||u||:", signif(a), " alpha:", alpha)
-    }
-  }
-  if (trace > 0){
-    message("Stop after ", n, " iterations, with ||u||=", signif(a))
-  }
-
-  return(B)
-}
-
-
-#' Estimate B minimizing Frobenius distance from inverse covariance
-#'
-#' @param Sigma the empirical covariance matrix
-#' @param B an initial guess for matrix B
-#' @param C the value of the noise matrix C
-#' @param eps stopping criteria
-#' @param alpha step length
-#' @param beta increasing factor for the step size
-#' @param maxIter
-#' @param trace
-#' @param lambda
-#'
-#' @return the estimated B matrix
-#' @importFrom lyapunov clyap clyap2
-#' @export
-estimateBP <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
-                       alpha = 1e-2, beta = 2, maxIter = Inf, trace = 0,
-                       lambda = 0.1, r = TRUE){
-  Pt <- solve(Sigma)
-  p <- ncol(Sigma)
-  a <- Inf
-  n <- 0
-  aold <- 0
-  Ds <- list()
-  D <- matrix(nrow = p, ncol = p, 0)
-  E <- matrix(nrow = p, ncol = p, 0)
-  ix <- (1: p^2 )[B != 0]
-  while (a > eps && n < maxIter){
-    if (r) ix <- (1: p^2 )[B != 0]
-
-    n <- n + 1
-
-
-    allres <- clyap(A = B, Q = C, all = TRUE)
-    S <- matrix(nrow = p, data = allres[[6]])
-    AA <- matrix(nrow = p, data = allres[[4]])
-    EE <- matrix(nrow = p, data = allres[[5]])
-    WKV <- allres[[7]]
-
-    P <- solve(S)
-    Delta <- Pt - P
-
-    # for (i in 1:length(ix)){
-    #   E <- matrix(nrow = p, ncol = p, 0)
-    #   E[ix[i]] <- 1
-    #   Cp <- E %*% S + S %*% t(E)
-    #   Ds[[i]] <- - P %*% clyap2(A = AA, Q = Cp, E = EE,  WKV = WKV) %*% P
-    # }
-    #
-    # u <- vapply(1:length(ix), function(i) sum(Ds[[i]] * Delta ),
-    #             FUN.VALUE = 1)
-
-    u <- vapply(1:length(ix), function(i){
-      E[ix[i]] <- 1
-      Cp <- E %*% S + S %*% t(E)
-      D <- - P %*% clyap2(A = AA, Q = Cp, E = EE,  WKV = WKV) %*% P
-      E[ix[i]] <- 0
-      sum(D * Delta )
-    }, FUN.VALUE = 1)
-
-    Bold <- B[ix]
-
-    B[ix] <- B[ix] +  alpha * u
-    B[ix] <- sign(B[ix]) * (abs(B[ix]) - alpha * lambda)
-    B[abs(B) < (alpha * lambda)] <- 0
-
-    a <- sqrt(sum((B[ix] - Bold)^2) / alpha)
-
-    if (trace > 1){
-      message("Iteration: ", n, " ||diff||:", signif(a))
-    }
-  }
-  if (trace > 0){
-    message("Stop after ", n, " iterations, with ||u||=", signif(a))
-  }
-
-  return(B)
-}
-
-
-#' Estimate B minimizing penalized logLik
-#'
-#' @param Sigma the empirical covariance matrix
-#' @param B an initial guess for matrix B
-#' @param C the value of the noise matrix C
+#' @param B an initial guess for the coefficient matrix B
+#' @param C the initial guess for the noise matrix C
 #' @param eps stopping criteria
 #' @param alpha step size
 #' @param maxIter maximum number of iterations
 #' @param trace if >0 print info
-#' @param lambda sparsity
+#' @param lambda penalization coefficient
 #' @param r logical
 #'
-#' @return the estimated B matrix
-#' @importFrom lyapunov clyap
+#' @return the estimated B matrix (\code{estimateBLL}) or
+#' the estiamted C matrix (\code{estiamteCLL}).
+#' @importFrom lyapunov clyap clyap2
 #' @export
 estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
-                      alpha = 0.1, maxIter = 1000, trace = 0,
-                      lambda = 0, r = FALSE){
+                        alpha = 0.1,
+                        maxIter = 1000, trace = 0,
+                        lambda = 0, r = FALSE){
   p <- ncol(Sigma)
 
   a <- Inf
   n <- 0
   E <- matrix(nrow = p, ncol = p, 0)
-  ix <- (1: p^2 )[B != 0]
-  while (a > eps && n < maxIter  || n < 2){
+  #ix <- (1: p^2 )[B != 0]
+  ix <- 1:(p^2)
+  while (abs(a) > eps && n < maxIter  || n < 2){
     if (r) ix <- (1: p^2 )[B != 0]
     u <- rep(0, length(ix))
     n <- n + 1
@@ -185,25 +38,9 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
     AA <- matrix(nrow = p, data = allres[[4]])
     EE <- matrix(nrow = p, data = allres[[5]])
     WKV <- allres[[7]]
-
     P <- solve(S)
+
     tmp <- P %*% Sigma %*% P - P
-
-    ### computing gradient
-    Ds <- list()
-
-    ### obtain DS
-    # for (i in 1:length(ix)){
-    #   E[ix[i]] <- 1
-    #   Cp <- E %*% S + S %*% t(E)
-    #   Ds[[i]] <- clyap2(A = AA, Q = Cp, E = EE, WKV = WKV)
-    #   E[ix[i]] <- 0
-    # }
-
-    ###compute gradient
-    # for (i in 1:length(ix)){
-    #   u[i] <- sum(tmp * Ds[[i]] )
-    # }
 
     u <- vapply(1:length(ix), function(i){
       E[ix[i]] <- 1
@@ -213,17 +50,16 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
       sum(tmp * D )
     }, FUN.VALUE = 1)
 
-    Bold <- B
+    #Bold <- B
 
-    ### gradient step
     B[ix] <- B[ix] + alpha * u
-
 
     ### soft thres
     B[ix] <- sign(B[ix]) * (abs(B[ix]) - alpha * lambda)
     B[abs(B) < (alpha * lambda)] <- 0
 
-    a <- sqrt(sum( (B - Bold)^2 ) / alpha)
+    #a <- sqrt(sum( (B - Bold)^2 ))
+    a <- sqrt(sum(u ^ 2))
     if (trace > 1){
       message("Iteration: ", n, " ||diff||:", signif(a))
     }
@@ -235,45 +71,49 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
   return(B)
 }
 
-
-
 #' @rdname estimateBLL
+#' @param C0 penalization matrix
 #' @importFrom lyapunov clyap clyap2
 #' @export
-estimateBLL2 <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
-                        alpha = 0.1, maxIter = 1000, trace = 0,
+estimateCLL <- function(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
+                        eps =  1e-2,
+                        alpha = 0.1,
+                        maxIter = 1000, trace = 0,
                         lambda = 0, r = FALSE){
   p <- ncol(Sigma)
-  Pt <- solve(Sigma)
+
   a <- Inf
   n <- 0
+  E <- matrix(nrow = p, ncol = p, 0)
   ix <- (1: p^2 )[B != 0]
-  while (a > eps && n < maxIter  || n < 2){
+  ixc <- (1: p^2 )[C != 0]
+  allres <- clyap(A = B, Q = C, all = TRUE)
+
+  AA <- matrix(nrow = p, data = allres[[4]])
+  EE <- matrix(nrow = p, data = allres[[5]])
+  WKV <- allres[[7]]
+  while (abs(a) > eps && n < maxIter  || n < 2){
     if (r) ix <- (1: p^2 )[B != 0]
     u <- rep(0, length(ix))
     n <- n + 1
 
-    S <- clyap(A = B, Q = C)
+    S <- clyap2(A = AA, Q = C, E = EE,  WKV = WKV)
     P <- solve(S)
 
-    #delta <- S - Sigma
-    delta <- P - Pt
+    tmp <- P %*% Sigma %*% P - P
 
-    Cd <- - (B %*% delta + delta %*% t(B))
+    v <- vapply(1:length(ixc), function(i){
+      E[ixc[i]] <- 1
+      Cp <- E + t(E)
+      D <- clyap2(A = AA, Q = Cp, E = EE,  WKV = WKV)
+      E[ixc[i]] <- 0
+      sum(tmp * D )
+    }, FUN.VALUE = 1) - 2 * lambda * ( (C - C0)[ixc])
 
+    C[ixc] <- C[ixc] + alpha * v
 
-    D <- -  Cd %*% P
-    Bold <- B
+    a <- sqrt(sum( v ^ 2))
 
-    ### gradient step
-    B <- B + alpha * D
-
-
-    ### soft thres
-    B[ix] <- sign(B[ix]) * (abs(B[ix]) - alpha * lambda)
-    B[abs(B) < (alpha * lambda)] <- 0
-
-    a <- sqrt(sum( (B - Bold)^2 ) / alpha)
     if (trace > 1){
       message("Iteration: ", n, " ||diff||:", signif(a))
     }
@@ -282,6 +122,7 @@ estimateBLL2 <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
     message("Stop after ", n, " iterations, with ||diff||=", signif(a))
   }
 
-  return(B)
+  return(C)
 }
+
 

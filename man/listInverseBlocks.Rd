@@ -17,3 +17,4 @@ a list with the inverse of the leading sub-matrices of Sigma^(-1)
 List all the inverse matrices of the leading sub-matrix of P=Sigma^{-1}
 (INTERNAL)
 }
+\keyword{internal}

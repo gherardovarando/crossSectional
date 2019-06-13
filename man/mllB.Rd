@@ -2,13 +2,17 @@
 % Please edit documentation in R/util.R
 \name{mllB}
 \alias{mllB}
-\title{Minus log-likelihood for invariant distribution of OU}
+\title{Minus log-likelihood for the invariant distribution of OU}
 \usage{
 mllB(B, S, C = diag(nrow(B)))
 }
 \arguments{
-\item{C}{}
+\item{B}{coefficent matrix}
+
+\item{S}{covariance matrix}
+
+\item{C}{noise matrix}
 }
 \description{
-Minus log-likelihood for invariant distribution of OU
+Minus log-likelihood for the invariant distribution of OU
 }

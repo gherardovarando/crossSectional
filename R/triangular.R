@@ -8,6 +8,7 @@
 #' @param B initial estimate for the coefficient matrix
 #' @param ... additional parameters passed to \code{optim}
 #'
+#' @importFrom stats qchisq
 #' @export
 lrtB <-
   function(data,
@@ -146,25 +147,3 @@ l1Bfast <-
     return(B)
   }
 
-
-#' search best dag ordering
-#'
-#' @export
-searchOrder <- function(Sigma, P = solve(Sigma)){
- p <- nrow(Sigma)
- order <- 1:p
- for (i in 1:(p-1)){
-   res <- c()
-   for (j in i:p){
-     ord <- order
-     ord[i] <- order[j]
-     ord[j] <- order[i]
-     B <- lowertriangB(Sigma = Sigma[ord, ord], P = P[ord, ord])
-     res <- c(res, sum(abs(B[(i + 1) : p, i])))
-   }
-   tmp <- order[which.max(res) + i - 1]
-   order[which.max(res) + i - 1] <- order[i]
-   order[i] <- tmp
- }
- return(order)
-}

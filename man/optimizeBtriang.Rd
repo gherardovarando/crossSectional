@@ -21,3 +21,6 @@ The MLE estimation of the coefficient matrix
 \description{
 Maximum likelihood optimization for triangular B
 }
+\details{
+MLE for coefficient matrix with the same 0s pattern of \code{B}
+}

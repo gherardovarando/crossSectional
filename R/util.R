@@ -1,24 +1,24 @@
-
-
+#' Difference graph
 #'
 #' @param B1 matrix
 #' @param B2 matrix
+#' @param legend logical if to print the legend
 #'
 #' @return a graph with colored edges where
 #'         in red are plotted the edges in \code{B1} and not in
-#'         \code{B2}
-#' @import igraph
+#'         \code{B2} and in blue the edges in \code{B2} and not in
+#'         \code{B1}.
 #' @export
 deltaGraph <- function(B1, B2, legend = FALSE,  ...){
-  gr1 <- graph_from_adjacency_matrix(abs(sign(t(B1))))
-  gr2 <- graph_from_adjacency_matrix(abs(sign(t(B2))))
-  d1 <-  set_edge_attr(gr1 - gr2, name = "color", index = , value = "red" )
-  d1 <- add_edges(d1, edges = c(t(get.edgelist(gr2 - gr1))),
+  gr1 <- igraph::graph_from_adjacency_matrix(abs(sign(t(B1))))
+  gr2 <- igraph::graph_from_adjacency_matrix(abs(sign(t(B2))))
+  d1 <-  igraph::set_edge_attr(gr1 - gr2, name = "color", index = , value = "red" )
+  d1 <- igraph::add_edges(d1, edges = c(t(igraph::get.edgelist(gr2 - gr1))),
                   attr = list(color = "blue"))
-  ed <- c(t(get.edgelist(intersection(gr1, gr2))))
-  d1 <- add_edges(d1, edges = ed,
+  ed <- c(t(igraph::get.edgelist(igraph::intersection(gr1, gr2))))
+  d1 <- igraph::add_edges(d1, edges = ed,
                   attr = list(color = "black"))
-  plot(d1, ...)
+  igraph::plot.igraph(d1, ...)
   if (legend){
     legend("left", legend = c("correct", "missing", "wrong"),
            col = c("black", "red", "blue"), lty = 1, lwd = 2 ,cex = 0.5)
@@ -27,11 +27,13 @@ deltaGraph <- function(B1, B2, legend = FALSE,  ...){
 }
 
 
-#' hamming distance
+#' Hamming distance between adjacency matrices
 #'
-#' @param A
-#' @param B
+#' @param A matrix
+#' @param B matrix
 #'
+#' @return The hamming distance between the directed graphs induced by
+#'  \code{A} and \code{B}.
 #' @export
 hamming <- function(A, B){
   sum( (A != 0) != (B != 0) )
@@ -49,12 +51,13 @@ mll <- function(P, S){
  -determinant(P, logarithm = TRUE)$modulus + sum(S * P)
 }
 
-#' Minus log-likelihood for invariant distribution of OU
+#' Minus log-likelihood for the invariant distribution of OU
 #'
-#' @param B
-#' @param S
-#' @param C
+#' @param B coefficent matrix
+#' @param S covariance matrix
+#' @param C noise matrix
 #'
+#' @importFrom lyapunov clyap
 #' @export
 mllB <- function(B, S, C = diag(nrow(B))){
   P <- solve(lyapunov::clyap(A = B, Q = C))
@@ -133,13 +136,16 @@ rSkewSymm <- function(p, rFun = rnorm){
 #' @param p integere the dimension of the matrix
 #' @param d proportion of non zero entries
 #' @param lower logical, should the matrix be lower triangular
+#' @param rfun the random number generator for the matrix entries
+#' @param rdiag the random number generator for the diagonal added error
 #'
 #' @return a square matrix with positive off-diagonal entries (Metzler)
 #' and eigenvalues with strict negative real part (stable)
 #'
 #' @importFrom stats rnorm
 #' @export
-rStableMetzler <- function(p = 1, d = 1, lower = FALSE, rfun = rnorm, rdiag = rnorm){
+rStableMetzler <- function(p = 1, d = 1, lower = FALSE,
+                           rfun = rnorm, rdiag = rnorm){
   D <- abs(rfun(p * p)) * sample(c(0,1), replace = TRUE, size = p * p,
                              prob = c(1 - d, d))
   A <- matrix(nrow = p, ncol = p, data = D)
@@ -154,17 +160,19 @@ rStableMetzler <- function(p = 1, d = 1, lower = FALSE, rfun = rnorm, rdiag = rn
 
 #' Recover lower triangular B
 #'
-#' Recover the only lower triangular stable matrix B such that
+#' Recover the only lower triangular stable matrix B such that the
+#' associate OU process admit invariant distribution with covariance equal
+#' to the given matrix.
 #'
 #'
-#'@param Sigma PSD matrix, the covariance matrix
-#'@param P PSD matrix, the inverse of the covariance
-#'@param C PSD matrix
+#' @param Sigma PSD matrix, the covariance matrix
+#' @param P PSD matrix, the inverse of the covariance
+#' @param C PSD matrix
 #'
-#'@return A stable lower triangular matrix
+#' @return A stable lower triangular matrix
 #'
-#'@importFrom gmat anti_t
-#'@export
+#' @importFrom gmat anti_t
+#' @export
 lowertriangB <- function(Sigma,
                          P = solve(Sigma),
                          C = diag(nrow = nrow(Sigma))){
@@ -204,9 +212,10 @@ lowertriangB <- function(Sigma,
 #' List all the inverse matrices of the leading sub-matrix of P=Sigma^{-1}
 #' (INTERNAL)
 #'
-#'@param Sigma an invertible (SYMMETRIC??) matrix
+#' @param Sigma an invertible (SYMMETRIC??) matrix
 #'
-#'@return a list with the inverse of the leading sub-matrices of Sigma^(-1)
+#' @return a list with the inverse of the leading sub-matrices of Sigma^(-1)
+#' @keywords internal
 listInverseBlocks <- function(Sigma){
    l <- list()
    l[[1]] <- Sigma
@@ -227,10 +236,11 @@ listInverseBlocks <- function(Sigma){
 #' @param C positive definite term of the Lyapunov equation
 #' @param ... additional parameters passed to \code{optim}
 #'
-#' @detail MLE for coefficient matrix with the same 0s pattern of \code{B}
+#' @details MLE for coefficient matrix with the same 0s pattern of \code{B}
 #'
 #' @return The MLE estimation of the coefficient matrix
 #'
+#' @importFrom stats optim
 #' @export
 optimizeB <- function(B, S, C = diag(nrow(B)),
                       ...){
@@ -260,10 +270,11 @@ optimizeB <- function(B, S, C = diag(nrow(B)),
 #' @param C positive definite term of the Lyapunov equation
 #' @param ... additional parameters passed to \code{optim}
 #'
-#' @detail MLE for coefficient matrix with the same 0s pattern of \code{B}
+#' @details MLE for coefficient matrix with the same 0s pattern of \code{B}
 #'
 #' @return The MLE estimation of the coefficient matrix
 #'
+#' @importFrom stats optim
 #' @export
 optimizeBtriang <- function(B, S, C = diag(nrow(B)),
                       ...){
@@ -286,44 +297,54 @@ optimizeBtriang <- function(B, S, C = diag(nrow(B)),
 }
 
 
+
+
+#' Hessian of log-likelihood for Lyapunov parametrization
 #'
-#'@param B
-#'@param Sigma
-#'@export
-#'@importFrom lyapunov clyap
-maxllB <- function(B, Sigma, C = diag(ncol(B)) ){
-  P <- solve(Sigma)
-  ix <- (1: p^2 )[B != 0 ]
+#' @param B the B matrix
+#' @param C the C matrix
+#' @param Sigma the empirical covariance matrix
+#'
+#' @return the Hessian matrix of the log-likelihood
+#' @export
+hessianll <- function(B, C = diag(nrow(B)), Sigma){
   p <- nrow(B)
-  done <- FALSE
-  delta <- 1
-  while (delta > 0.0001){
-    obj <- mllB(B, Sigma, C)
-    for (i in ix){
-      S <- clyap(B, C)
-      U <- matrix(nrow = p, ncol = p , 0)
-      U[i] <- 1
-      C1 <- U %*% S + S %*% t(U)
-      D <- clyap(B, C1)
-      f <- function(h){
-       mll(solve(S + h * D), Sigma)
-      }
+  pp <- p^2
+  allres <- clyap(A = B, Q = C, all = TRUE)
+  S <- matrix(nrow = p, data = allres[[6]])
+  AA <- matrix(nrow = p, data = allres[[4]])
+  EE <- matrix(nrow = p, data = allres[[5]])
+  WKV <- allres[[7]]
+  P <- solve(S)
+  E <- matrix (nrow = p, ncol = p, 0)
+  Ds <- list()
+  H <- matrix(nrow = pp, ncol = pp, data = 0)
 
-      h <- optimise(f, c(-1,1))$minimum
-
-      Btry <- B + h * U
-      objn <- mllB(Btry, Sigma, C)
-      if (objn < obj){
-         delta <- objn - obj
-         B <- Btry
-         obj <- objn
-      }
-    }
+  Delta <- P %*% (S - Sigma) %*% P
+  for (i in 1:pp){
+    E[i] <- 1
+    Cp <- E %*% S + S %*% t(E)
+    Ds[[i]] <- clyap2(A = AA, Q = Cp, E = EE, WKV = WKV)
+    E[i] <- 0
   }
 
-  return(B)
+  for (i in 1:pp){
+    E[i] <- 1
+    R <- E
+    E[i] <- 0
+    for (j in 1:i){
+      E[i] <- 1
+      R <- E
+      E[i] <- 0
+      E[j] <- 1
+      R <- R + E
+      E[j] <- 0
+      DD <- clyap2(A = AA, Q = R, E = EE, WKV = WKV)
+      H[i, j] <- sum((Ds[[i]] %*% P) * (Ds[[j]] %*% P)) +
+                sum(Delta * DD)  - 2 * sum(Delta * (Ds[[i]] %*% P %*% Ds[[j]]))
+      H[j, i] <- H[i, j]
+    }
+  }
+return(H)
 }
-
-
-
 

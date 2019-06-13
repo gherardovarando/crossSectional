@@ -13,6 +13,10 @@ rStableMetzler(p = 1, d = 1, lower = FALSE, rfun = rnorm,
 \item{d}{proportion of non zero entries}
 
 \item{lower}{logical, should the matrix be lower triangular}
+
+\item{rfun}{the random number generator for the matrix entries}
+
+\item{rdiag}{the random number generator for the diagonal added error}
 }
 \value{
 a square matrix with positive off-diagonal entries (Metzler)

@@ -12,7 +12,8 @@ LazyData: true
 RoxygenNote: 6.1.1
 Roxygen: list(markdown = TRUE)
 Imports: gmat,
-        lyapunov,
-        MASS,
-        stats
-Suggests: testthat
+         lyapunov,
+         MASS,
+         stats
+Suggests: testthat,
+          igraph
