@@ -2,9 +2,12 @@
 % Please edit documentation in R/util.R
 \name{hessianll}
 \alias{hessianll}
+\alias{diagHessianll}
 \title{Hessian of log-likelihood for Lyapunov parametrization}
 \usage{
 hessianll(B, C = diag(nrow(B)), Sigma)
+
+diagHessianll(B, C = diag(nrow(B)), Sigma)
 }
 \arguments{
 \item{B}{the B matrix}

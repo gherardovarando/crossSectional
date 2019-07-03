@@ -348,3 +348,93 @@ hessianll <- function(B, C = diag(nrow(B)), Sigma){
 return(H)
 }
 
+#' @rdname hessianll
+#' @export
+diagHessianll <- function(B, C = diag(nrow(B)), Sigma){
+  p <- nrow(B)
+  pp <- p^2
+  allres <- clyap(A = B, Q = C, all = TRUE)
+  S <- matrix(nrow = p, data = allres[[6]])
+  AA <- matrix(nrow = p, data = allres[[4]])
+  EE <- matrix(nrow = p, data = allres[[5]])
+  WKV <- allres[[7]]
+  P <- solve(S)
+  E <- matrix (nrow = p, ncol = p, 0)
+  Ds <- list()
+  DH <- matrix(nrow = 1, ncol = pp, data = 0)
+
+  Delta <- P %*% (S - Sigma) %*% P
+  for (i in 1:pp){
+    E[i] <- 1
+    Cp <- E %*% S + S %*% t(E)
+    Ds[[i]] <- clyap2(A = AA, Q = Cp, E = EE, WKV = WKV)
+    E[i] <- 0
+  }
+
+  for (i in 1:pp){
+    E[i] <- 1
+    R <- E
+    E[i] <- 0
+    j = i
+    E[i] <- 1
+    R <- E
+    E[i] <- 0
+    E[j] <- 1
+    R <- R + E
+    E[j] <- 0
+    DD <- clyap2(A = AA, Q = R, E = EE, WKV = WKV)
+    DH[i] <- sum((Ds[[i]] %*% P) * (Ds[[j]] %*% P)) +
+        sum(Delta * DD)  - 2 * sum(Delta * (Ds[[i]] %*% P %*% Ds[[j]]))
+  }
+  return(DH)
+}
+
+#'
+#' @export
+ROC <- function(Bp, Bt, np = 100){
+ pp <- seq(from =1, to = 0, length.out = np)
+ D <- sapply(pp, FUN = function(p){
+   Bp[Bp <= p] <- 0
+   c(FPR = FPR(Bp, Bt), TPR = TPR(Bp, Bt))
+ })
+ return(t(D))
+}
+
+#'
+#'@export
+AUROC <- function(Bp, Bt, np = 100){
+ D <- ROC(Bp, Bt, np)
+ temp <- 0
+ for (i in 1:(np - 1)){
+   ## trapezoidal quadrature rule
+   temp <- temp + (D[i + 1,2] + D[i, 2]) * ( D[i + 1,1] - D[i,1]) / 2
+ }
+ return(temp)
+}
+
+#'
+#'@export
+FPR <- function(Be, Bt){
+  diag(Bt) <- 1
+  diag(Be) <- 1
+  p <- nrow(Be)
+  (sum(Be != 0 & Bt == 0)) / (sum(Bt == 0))
+}
+
+
+#'
+#'@export
+TPR <- function(Be, Bt){
+   diag(Be) <- 1
+   diag(Bt) <- 1
+   p <- nrow(Be)
+   (sum(Be != 0 & Bt != 0) - p) / (sum(Bt !=0) - p)
+}
+
+
+#' @export
+B0 <- function(p){
+  M <- matrix(nrow = p, ncol = p, 1)
+  diag(M) <- -p
+  return(M)
+}

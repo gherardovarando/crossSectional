@@ -1,53 +1,5 @@
 #' Estimate triangular OU from cross sectional data
 #'
-#' Use LRT
-#'
-#' @param data the sample from the invariant distribution
-#' @param D noise matrix
-#' @param alpha significance level for the LRT
-#' @param B initial estimate for the coefficient matrix
-#' @param ... additional parameters passed to \code{optim}
-#'
-#' @importFrom stats qchisq
-#' @export
-lrtB <-
-  function(data,
-           D = diag(ncol(data)),
-           alpha = 0.1,
-           B = NULL,
-           ...) {
-    p <- ncol(data)
-    q <- qchisq(1 - alpha, 1)
-    S <- var(data)
-    P <- solve(S)
-    C <- D %*% t(D)
-    if (is.null(B)) {
-      B <- lowertriangB(S, P, C)$B
-      m <- mll(P, S)
-      B[upper.tri(B)] <- 0
-    } else{
-      B[upper.tri(B)] <- 0
-      B <- optimizeB(B, S, C, ...)
-      m <- mllB(B, S, C)
-    }
-    for (i in (2:p)) {
-      for (j in (1:(i - 1))) {
-        Bnew <- B
-        Bnew[i, j] <- 0
-        Bnew <- optimizeB(Bnew, S, C, ...)
-        mnew <- mllB(Bnew, S, C)
-        if (2 * (mnew - m) < q) {
-          m <- mnew
-          B <- Bnew
-        }
-      }
-    }
-    return(B)
-  }
-
-
-#' Estimate triangular OU from cross sectional data
-#'
 #' Use l1
 #'
 #' @param S sample covariance

@@ -3,14 +3,20 @@
 \name{estimateBLL}
 \alias{estimateBLL}
 \alias{estimateCLL}
+\alias{estimateBF}
 \title{Estimate Ornstein-Uhlenbeck process}
 \usage{
-estimateBLL(Sigma, B, C = diag(ncol(Sigma)), eps = 0.01, alpha = 0.1,
-  maxIter = 1000, trace = 0, lambda = 0, r = FALSE)
+estimateBLL(Sigma, B, C = diag(ncol(Sigma)), eps = 0.01, alpha = 0.2,
+  beta = 0.5, maxIter = 1000, trace = 0, lambda = 0, r = FALSE,
+  h = FALSE, pert = FALSE)
 
 estimateCLL(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
-  eps = 0.01, alpha = 0.1, maxIter = 1000, trace = 0, lambda = 0,
-  r = FALSE)
+  eps = 0.01, alpha = 0.2, beta = 0.5, maxIter = 1000, trace = 0,
+  lambda = 0, r = FALSE, t0 = 1)
+
+estimateBF(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
+  eps = 0.01, alpha = 1, maxIter = 1000, trace = 0, lambda = 0.1,
+  beta = 0.5, r = FALSE, h = FALSE)
 }
 \arguments{
 \item{Sigma}{the empirical covariance matrix}
@@ -21,7 +27,9 @@ estimateCLL(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
 
 \item{eps}{stopping criteria}
 
-\item{alpha}{step size}
+\item{alpha}{parameter backtracking}
+
+\item{beta}{parameter backtracking}
 
 \item{maxIter}{maximum number of iterations}
 
@@ -29,7 +37,9 @@ estimateCLL(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
 
 \item{lambda}{penalization coefficient}
 
-\item{r}{logical}
+\item{r}{logical the set of parameter will be updated at every iteration}
+
+\item{h}{logical if TRUE only the non-zero entries of B will be updated}
 
 \item{C0}{penalization matrix}
 }
