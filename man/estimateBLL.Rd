@@ -42,6 +42,8 @@ estimateBF(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
 \item{h}{logical if TRUE only the non-zero entries of B will be updated}
 
 \item{C0}{penalization matrix}
+
+\item{delt}{stepsize for internal stable approx}
 }
 \value{
 the estimated B matrix (\code{estimateBLL}) or

@@ -9,6 +9,7 @@
 #' @param eps stopping criteria
 #' @param alpha parameter backtracking
 #' @param beta parameter backtracking
+#' @param delt stepsize for internal stable approx
 #' @param maxIter maximum number of iterations
 #' @param trace if >0 print info
 #' @param lambda penalization coefficient
@@ -38,8 +39,8 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
   P <- solve(S)
   tk <- 1
   u <- rep(0, length(ix))
-  f <- 0
-  while (abs(a) > eps && n < maxIter  || n < 2){
+  f <- mll(P = P, S = Sigma)
+  while (a > eps && n < maxIter) {
     if (r) ix <- (1: p^2 )[B != 0]
     ixnd <- ix[! ix %in% ixd ] ## not diagonal elements
 
@@ -47,13 +48,25 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
 
     tmp <- P %*% Sigma %*% P - P
 
-    u <- vapply(1:length(ix), function(i){
-      E[ix[i]] <- 1
-      Cp <- E %*% S + S %*% t(E)
-      D <- clyap2(A = AA, Q = Cp, E = EE,  WKV = WKV)
-      E[ix[i]] <- 0
-      sum(tmp * D )
-    }, FUN.VALUE = 1)
+    delta <- Sigma - S
+    Cp <- delta %*% (B + C %*% P)
+    Cp <- 0.5 * (Cp + t(Cp))
+    AA <- S %x% diag(p)
+    ixl <- matrix(nrow = p, ncol = p, 1:p^2)[lower.tri(Sigma)]
+    ixu <- matrix(nrow = p, ncol = p, 1:p^2)[upper.tri(Sigma)]
+    AA[, ixl] <-   AA[ , ixl] - AA[, ixu]
+    AA <- AA[, -c(ixu, ixd)]
+    u <- lm.fit(AA, c(Cp %*% S), offset = FALSE)$residual
+
+    u <- u[ix]
+    u <- u / sqrt(sum(u ^ 2))
+    #u <- vapply(1:length(ix), function(i){
+    #  E[ix[i]] <- 1
+    #  Cp <- E %*% S + S %*% t(E)
+    #  D <- clyap2(A = AA, Q = Cp, E = EE,  WKV = WKV)
+    #  E[ix[i]] <- 0
+    #  sum(tmp * D )
+    #}, FUN.VALUE = 1)
 
     if (pert){
       ru <- rnorm(length(u))
@@ -63,16 +76,12 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
     Bold <- B
 
     #### Beck and Teboulle line search
-    f <- mll(P, Sigma)
+    f <- mll(P, Sigma) + lambda * sum(abs(Bold[ixnd]))
     fnew <- Inf
 
     alph <- alpha
-    while ( fnew + lambda * sum(abs(B[ixnd]))  > f - sum(u * (B[ix] - Bold[ix]) ) +
-             sum((B[ix] - Bold[ix]) ^ 2) / (2* alph)  +
-            lambda * sum(abs(Bold[ixnd])) )   {
-
-    #while (fnew + sum(abs(B[ixnd])) > f - alph * 0.5 * sum(u^2) +
-    #       sum(abs(Bold[ixnd])) ){
+    while ( fnew   > f - sum(u * (B[ix] - Bold[ix]) ) +
+            sum((B[ix] - Bold[ix]) ^ 2) / (2* alph)  || fnew > f) {
 
       B[ix] <- Bold[ix] + alph * u
 
@@ -80,25 +89,25 @@ estimateBLL <- function(Sigma, B, C = diag(ncol(Sigma)), eps =  1e-2,
       B[ixnd] <- sign(B[ixnd]) * (abs(B[ixnd]) - alph * lambda)
       B[ixnd][abs(B[ixnd]) < (alph * lambda)] <- 0
 
-
+      ### Lyapunv solution
       allres <- clyap(A = B, Q = C, all = TRUE)
       S <- matrix(nrow = p, data = allres[[6]])
       AA <- matrix(nrow = p, data = allres[[4]])
       EE <- matrix(nrow = p, data = allres[[5]])
       WKV <- allres[[7]]
-      P <- solve(S)
-      fnew <- mll(P, Sigma)
+      if (all( (diag(AA) * diag(EE))  < 0 )){
+        P <- solve(S)
+        fnew <- mll(P, Sigma) + lambda * sum(abs(B[ixnd]))
+      }else{
+        fnew <- Inf
+      }
       alph <- alph * beta
-      #break
     }
-    #alph <- alph / beta
 
-    #a <- sqrt(sum(Bold - B)^2) / (sqrt(sum(Bold^2)) * alph)
-    a <- (f + lambda * sum(abs(Bold[ixnd])) - fnew - lambda * sum(abs(B[ixnd]))) /
-       (abs(f + lambda * sum(abs(Bold[ixnd]))))
-    #a <- sqrt(sum(u ^ 2))
+    a <- (f - fnew ) / (abs(f))
     if (trace > 1){
-      message("Iteration: ", n, " ||diff||:", signif(a))
+      message("Iteration: ", n, " ||diff||:", signif(a),
+              " alpha:", alph / beta)
     }
   }
   if (trace > 0){
@@ -133,7 +142,7 @@ estimateCLL <- function(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
   WKV <- allres[[7]]
   S <- clyap2(A = AA, Q = C, E = EE,  WKV = WKV)
   P <- solve(S)
-  while (abs(a) > eps && n < maxIter){
+  while (a > eps && n < maxIter){
     if (r) ix <- (1: p^2 )[B != 0]
     u <- rep(0, length(ix))
     n <- n + 1
@@ -156,15 +165,18 @@ estimateCLL <- function(Sigma, B, C = diag(ncol(Sigma)), C0 = diag(ncol(Sigma)),
     t <- t0
     while (fnew > f - t * alpha * sum(v^2)){
       C[ixc] <- Cold[ixc] + t * v
-      S <- clyap2(A = AA, Q = C, E = EE,  WKV = WKV)
-      P <- solve(S)
-      fnew <- mll(P, Sigma)+ lambda * sum((C -C0)^2)
+      if (all(diag(C) > 0)){
+        S <- clyap2(A = AA, Q = C, E = EE,  WKV = WKV)
+        P <- solve(S)
+        fnew <- mll(P, Sigma) + lambda * sum((C -C0)^2)
+      }else{
+        fnew <- Inf
+      }
       t <- t * beta
-      if (t < 1e-16) return(C)
     }
 
-    a <- beta * sqrt(sum( (C - Cold) ^ 2)) / t
-
+    #a <- beta * sqrt(sum( (C - Cold) ^ 2)) / t
+    a <- (f - fnew) / abs(f)
     if (trace > 1){
       message("Iteration: ", n, " ||diff||:", signif(a))
     }
@@ -226,7 +238,7 @@ estimateBF <- function(Sigma,
       E[ix[i]] <- 0
       b[i] <- sum(Ds[[i]] * delta)
       for (j in 1:i){
-         M[i, j] <- M[j, i] <- sum(Ds[[i]] * Ds[[j]])
+        M[i, j] <- M[j, i] <- sum(Ds[[i]] * Ds[[j]])
       }
     }
 
@@ -243,7 +255,7 @@ estimateBF <- function(Sigma,
     alph <- alpha
     fnew <- Inf
     while ( (fnew > f - sum(u * (B[ix] - Bold[ix]) ) +
-            sum((B[ix] - Bold[ix]) ^ 2) / (2* alph) )){
+             sum((B[ix] - Bold[ix]) ^ 2) / (2* alph) )){
 
       B[ix] <- Bold[ix] + alph * u
 
@@ -295,53 +307,59 @@ genGlasso <- function(Sigma, P = diag(nrow(Sigma)),
                       lambda = 0.1, maxIter = 1000,
                       eps = 1e-5, alpha = 0.5, beta = 0.5, trace = 0){
 
-p <- nrow(Sigma)
-a <- Inf
-ixd <- 0:(p - 1) * (p) + 1:p ##index of diagonal elements
-ixl <- matrix(nrow = p, ncol = p, 1:p^2)[lower.tri(Sigma)]
-ixu <- matrix(nrow = p, ncol = p, 1:p^2)[upper.tri(Sigma)]
-GG <- diag(p) %x% G ## kronecker product
-GG <- GG[-ixd, ] ## not penalty on diagonal of B
-GG[, ixl] <- GG[, ixu] + GG[ , ixl]
-GG <- GG[, -ixu] ## eliminate strict upper part
-n <- 0
-while (abs(a) > eps && n < maxIter){
-  n <- n + 1
-  Pold <- P
-  S <- solve(P)
-  u <- S - Sigma
-  ### line search
-  f <- mll(P, Sigma)
-  fnew <- Inf
-  alph <- alpha
-  while ( (fnew > f - sum(u * (P - Pold) ) +
-           sum((P - Pold) ^ 2) / (2* alph) ) ){
+  p <- nrow(Sigma)
+  a <- Inf
+  ixd <- 0:(p - 1) * (p) + 1:p ##index of diagonal elements
+  ixl <- matrix(nrow = p, ncol = p, 1:p^2)[lower.tri(Sigma)]
+  ixu <- matrix(nrow = p, ncol = p, 1:p^2)[upper.tri(Sigma)]
+  GG <- diag(p) %x% G ## kronecker product
+  GG <- GG[-ixd, ] ## not penalty on diagonal of B
+  GG[, ixl] <- GG[, ixu] + GG[ , ixl]
+  GG <- GG[, -ixu] ## eliminate strict upper part
+  n <- 0
+  while (abs(a) > eps && n < maxIter){
+    n <- n + 1
+    Pold <- P
+    S <- solve(P)
+    u <- S - Sigma
+    ### line search
+    f <- mll(P, Sigma) + sum(abs(G %*% P))
+    fnew <- Inf
+    alph <- alpha
+    while ( (fnew   > f - sum(u * (P - Pold) ) +
+             sum((P - Pold) ^ 2) / (2* alph) ) ){
 
-    P <- Pold + alph * u
+      P <- Pold + alph * u
 
-    ### proximal step (genLasso)
-    b <- genlasso(P[-ixu], D = GG, minlam = alph * lambda)$beta
-    P[-ixu] <- b[, ncol(b)]
-    P[ixu] <- P[ixl]
-    fnew <- mll(P, Sigma)
-    alph <- alph * beta
-    #break ### no line search
+
+      ### proximal step (genLasso)
+      b <- genlasso(P[-ixu], D = GG, minlam = alph * lambda)$beta
+      P[-ixu] <- b[, ncol(b)]
+      P[ixu] <- P[ixl]
+      if (all(eigen(P, symmetric = TRUE, only.values = TRUE)$values > 0)){
+        fnew <- mll(P, Sigma) + sum(abs(G %*% P))
+      }else{
+        fnew <- Inf
+      }
+
+      alph <- alph * beta
+      #break ### no line search
+    }
+
+
+
+    #a <- f + sum(abs(Pold)) - fnew - sum(abs(P))
+    #a <- sqrt(sum(u ^ 2))
+    a <- sqrt(sum((Pold - P)^2))
+    if (trace > 1){
+      message("Iteration: ", n, " ||diff||:", signif(a))
+    }
+  }
+  if (trace > 0){
+    message("Stop after ", n, " iterations, with ||diff||=", signif(a))
   }
 
-
-
-  #a <- f + sum(abs(Pold)) - fnew - sum(abs(P))
-  #a <- sqrt(sum(u ^ 2))
-  a <- sqrt(sum((Pold - P)^2))
-  if (trace > 1){
-    message("Iteration: ", n, " ||diff||:", signif(a))
-  }
-}
-if (trace > 0){
-  message("Stop after ", n, " iterations, with ||diff||=", signif(a))
-}
-
-return(P)
+  return(P)
 }
 
 
